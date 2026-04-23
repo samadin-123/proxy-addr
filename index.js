@@ -33,6 +33,37 @@ var isip = ipaddr.isValid
 var parseip = ipaddr.parse
 
 /**
+ * Cache for isip validation results
+ * @private
+ */
+var isipCache = Object.create(null)
+var isipCacheSize = 0
+var MAX_CACHE_SIZE = 1000
+
+/**
+ * Cached version of isip validation
+ * @private
+ */
+function isipCached (addr) {
+  if (isipCache[addr] !== undefined) {
+    return isipCache[addr]
+  }
+
+  var result = isip(addr)
+
+  // Simple cache eviction: clear cache when it gets too large
+  if (isipCacheSize >= MAX_CACHE_SIZE) {
+    isipCache = Object.create(null)
+    isipCacheSize = 0
+  }
+
+  isipCache[addr] = result
+  isipCacheSize++
+
+  return result
+}
+
+/**
  * Pre-defined IP ranges.
  * @private
  */
@@ -253,7 +284,7 @@ function trustNone () {
 
 function trustMulti (subnets) {
   return function trust (addr) {
-    if (!isip(addr)) return false
+    if (!isipCached(addr)) return false
 
     var ip = parseip(addr)
     var ipconv
@@ -305,7 +336,7 @@ function trustSingle (subnet) {
   var subnetrange = subnet[1]
 
   return function trust (addr) {
-    if (!isip(addr)) return false
+    if (!isipCached(addr)) return false
 
     var ip = parseip(addr)
     var kind = ip.kind()
